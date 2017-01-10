@@ -140,8 +140,13 @@ public class AnalyzeChangedFilesJob extends WorkspaceJob {
       if (syncInfo != null && !SyncInfo.isInSync(syncInfo.getKind())) {
         changedFiles.add(file);
       }
+      return;
     }
     for (IResource child : subscriber.members(resource)) {
+      if (!child.getParent().equals(resource)) {
+        // Workaround for broken implementation of members (like ClearCase)
+        continue;
+      }
       collect(subscriber, child, changedFiles);
     }
   }
