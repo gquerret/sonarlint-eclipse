@@ -19,6 +19,9 @@
  */
 package org.sonarlint.eclipse.core.internal.tracking;
 
+import java.util.List;
+import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue.Flow;
+
 /**
  * Combine a new Trackable ("next") with a previous state ("base")
  */
@@ -28,6 +31,7 @@ public class CombinedTrackable extends WrappedTrackable {
   private final Long creationDate;
   private final boolean resolved;
   private final String assignee;
+  private final List<Flow> flows;
 
   public CombinedTrackable(Trackable base, Trackable next) {
     super(next);
@@ -37,6 +41,7 @@ public class CombinedTrackable extends WrappedTrackable {
     this.creationDate = base.getCreationDate();
     this.resolved = base.isResolved();
     this.assignee = base.getAssignee();
+    this.flows = base.getFlows();
   }
 
   @Override
@@ -57,5 +62,10 @@ public class CombinedTrackable extends WrappedTrackable {
   @Override
   public String getAssignee() {
     return assignee;
+  }
+
+  @Override
+  public List<Flow> getFlows() {
+    return flows;
   }
 }

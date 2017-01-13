@@ -97,6 +97,10 @@ public class MarkerUpdaterCallable implements Callable<IStatus> {
     attributes.put(IMarker.MESSAGE, trackable.getMessage());
     attributes.put(MarkerUtils.SONAR_MARKER_SERVER_ISSUE_KEY_ATTR, trackable.getServerIssueKey());
 
+    if (!trackable.getFlows().isEmpty()) {
+      attributes.put(MarkerUtils.SONAR_MARKER_EXTRA_LOCATIONS_ATTR, MarkerUtils.serialize(document, trackable.getFlows()));
+    }
+
     // File level issues (line == null) are displayed on line 1
     attributes.put(IMarker.LINE_NUMBER, trackable.getLine() != null ? trackable.getLine() : 1);
 

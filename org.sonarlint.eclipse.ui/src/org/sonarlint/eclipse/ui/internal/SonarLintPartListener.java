@@ -22,12 +22,17 @@ package org.sonarlint.eclipse.ui.internal;
 import java.util.Arrays;
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IResource;
+import org.eclipse.jface.text.Position;
+import org.eclipse.jface.text.source.Annotation;
+import org.eclipse.jface.text.source.IAnnotationModel;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorPart;
+import org.eclipse.ui.IEditorReference;
 import org.eclipse.ui.IFileEditorInput;
 import org.eclipse.ui.IPartListener2;
-import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.IWorkbenchPartReference;
+import org.eclipse.ui.PartInitException;
+import org.eclipse.ui.texteditor.ITextEditor;
 import org.sonarlint.eclipse.core.internal.SonarLintChangeListener;
 import org.sonarlint.eclipse.core.internal.TriggerType;
 import org.sonarlint.eclipse.core.internal.jobs.AnalyzeProjectJob;
@@ -39,12 +44,24 @@ import org.sonarlint.eclipse.ui.internal.views.issues.ChangeSetIssuesView;
 public class SonarLintPartListener implements IPartListener2 {
   @Override
   public void partOpened(IWorkbenchPartReference partRef) {
-    IWorkbenchPart part = partRef.getPart(true);
-    if (part instanceof IEditorPart) {
-      IEditorInput input = ((IEditorPart) part).getEditorInput();
-      if (input instanceof IFileEditorInput) {
-        IResource resource = ((IFileEditorInput) input).getFile();
-        scheduleUpdate(resource);
+    if (partRef instanceof IEditorReference) {
+      try {
+        IEditorPart editor = ((IEditorReference) partRef).getEditor(true);
+        IEditorInput editorInput = ((IEditorReference) partRef).getEditorInput();
+        if (editorInput instanceof IFileEditorInput) {
+          IFileEditorInput iFileEditorInput = (IFileEditorInput) editorInput;
+          IResource resource = iFileEditorInput.getFile();
+          scheduleUpdate(resource);
+        }
+        if (editor instanceof ITextEditor) {
+          ITextEditor textEditor = (ITextEditor) editor;
+          textEditor.getSelectionProvider().addSelectionChangedListener(e -> {
+            IAnnotationModel annotationModel = textEditor.getDocumentProvider().getAnnotationModel(editorInput);
+            annotationModel.addAnnotation(new Annotation("org.sonarlint.eclipse.issueFlowAnnotationType", true, "Message"), new Position(20, 10));
+          });
+        }
+      } catch (PartInitException e) {
+        // Ignore
       }
     }
     ChangeSetIssuesView.notifyEditorChanged();

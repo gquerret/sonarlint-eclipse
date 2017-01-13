@@ -19,6 +19,10 @@
  */
 package org.sonarlint.eclipse.core.internal.markers;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -34,15 +38,21 @@ import org.eclipse.jface.text.IDocument;
 import org.sonarlint.eclipse.core.SonarLintLogger;
 import org.sonarlint.eclipse.core.internal.PreferencesUtils;
 import org.sonarlint.eclipse.core.internal.SonarLintCorePlugin;
+import org.sonarlint.eclipse.core.internal.utils.StringUtils;
+import org.sonarsource.sonarlint.core.client.api.common.analysis.Issue.Flow;
+import org.sonarsource.sonarlint.core.client.api.common.analysis.IssueLocation;
+
+import static java.lang.Integer.valueOf;
 
 public final class MarkerUtils {
 
+  private static final String SEPARATOR = "|";
   public static final String SONAR_MARKER_RULE_KEY_ATTR = "rulekey";
   public static final String SONAR_MARKER_RULE_NAME_ATTR = "rulename";
   public static final String SONAR_MARKER_ISSUE_SEVERITY_ATTR = "sonarseverity";
   public static final String SONAR_MARKER_CREATION_DATE_ATTR = "creationdate";
-
   public static final String SONAR_MARKER_SERVER_ISSUE_KEY_ATTR = "serverissuekey";
+  public static final String SONAR_MARKER_EXTRA_LOCATIONS_ATTR = "extralocations";
 
   private MarkerUtils() {
   }
@@ -131,6 +141,72 @@ public final class MarkerUtils {
     int start = startLineStartOffset + startLineOffset;
     int end = endLineStartOffset + endLineOffset;
     return new FlatTextRange(start, end);
+  }
+
+  public static String serialize(IDocument doc, List<Flow> flows) {
+    StringBuilder sb = new StringBuilder();
+    for (Flow flow : flows) {
+      for (IssueLocation l : flow.locations()) {
+        FlatTextRange flatTextRange = MarkerUtils.getFlatTextRange(doc, l.getStartLine(), l.getStartLineOffset(), l.getEndLine(), l.getEndLineOffset());
+        sb.append(flatTextRange.getStart()).append(SEPARATOR);
+        sb.append(flatTextRange.getEnd()).append(SEPARATOR);
+        sb.append(l.getMessage()).append("\n");
+      }
+      sb.append("\n");
+    }
+    return sb.toString();
+  }
+
+  public static List<MyFlow> deserialize(String flowsAsString) {
+    try (BufferedReader reader = new BufferedReader(new StringReader(flowsAsString))) {
+      String line;
+      List<MyFlow> result = new ArrayList<>();
+      List<MyIssueLocation> locations = new ArrayList<>();
+      while ((line = reader.readLine()) != null) {
+        if (line.isEmpty()) {
+          result.add(new MyFlow(locations));
+        } else {
+          String startStr = StringUtils.substringBefore(line, SEPARATOR);
+          line = line.substring(startStr.length() + 1);
+          String endStr = StringUtils.substringBefore(line, SEPARATOR);
+          line = line.substring(endStr.length() + 1);
+          String message = line;
+          locations.add(new MyIssueLocation(valueOf(startStr), valueOf(endStr), message));
+        }
+      }
+      return result;
+    } catch (IOException e) {
+      // Should never occurs
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public static class MyFlow {
+
+    private final List<MyIssueLocation> locations;
+
+    public MyFlow(List<MyIssueLocation> locations) {
+      this.locations = locations;
+    }
+
+    public List<MyIssueLocation> locations() {
+      return locations;
+    }
+  }
+
+  public static class MyIssueLocation extends FlatTextRange {
+
+    private final String message;
+
+    public MyIssueLocation(int start, int end, String message) {
+      super(start, end);
+      this.message = message;
+    }
+
+    public String getMessage() {
+      return message;
+    }
+
   }
 
 }
